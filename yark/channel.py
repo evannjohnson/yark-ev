@@ -231,7 +231,7 @@ class Channel:
             # first extract the "flat" metadata, which does not download the metadata for all the videos
             for i in range(3):
                 try:
-                    res = YoutubeDL(params=settings).extract_info(self.url, download=False)
+                    res: dict[str, Any] = ydl.extract_info(self.url, download=False)
                     break
                 except Exception as exception:
                     # Report error
