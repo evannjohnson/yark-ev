@@ -247,35 +247,60 @@ class Channel:
                         )  # TODO: compat with loading bar
 
             # go through the "flat" metadata and download the metadata for each video
-            for index in range(len(res['entries'])):
-                url = res['entries'][index]['url'] 
-                for i in range(3):
-                    try:
-                        entry = ydl.extract_info(url, download=False)
-                        # if no formats were retrieved, it could be a pending livestream, or the downloader may be failing
-                        # when retrieving hundreds of videos, they begin failing after several hundred (token expiring?)
-                        # opening a new downloader can solve this
-                        if len(entry['formats']) == 0:
-                            ydl = YoutubeDL(settings)
+            for index in range(len(res["entries"])):
+                if res["entries"][index]["_type"] == "playlist":
+                    playlist = res["entries"][index]
+                    for list_index in range(len(playlist["entries"])):
+                        url = playlist["entries"][list_index]["url"]
+                        for i in range(3):
+                            try:
+                                entry = ydl.extract_info(url, download=False)
+                                if len(entry["formats"]) == 0:
+                                    ydl = YoutubeDL(settings)
+                                    entry = ydl.extract_info(url, download=False)
+
+                                playlist["entries"][list_index] = entry
+                                break
+                            except Exception as exception:
+                                # Report error
+                                retrying = i != 2
+                                _err_dl("metadata", exception, retrying)
+
+                                # Print retrying message
+                                if retrying:
+                                    print(
+                                        Style.DIM
+                                        + f"  • Retrying metadata download.."
+                                        + Style.RESET_ALL
+                                    )  # TODO: compat with loading bar
+
+
+                elif res["entries"][index]["_type"] == "url":
+                    url = res["entries"][index]["url"] 
+                    for i in range(3):
+                        try:
                             entry = ydl.extract_info(url, download=False)
+                            # if video didn't download formats, open a new downloader and try again
+                            if len(entry["formats"]) == 0:
+                                ydl = YoutubeDL(settings)
+                                entry = ydl.extract_info(url, download=False)
 
-                        res['entries'][index] = entry
-                        break
-                    except Exception as exception:
-                        # Report error
-                        retrying = i != 2
-                        _err_dl("metadata", exception, retrying)
+                            res["entries"][index] = entry
+                            break
+                        except Exception as exception:
+                            # Report error
+                            retrying = i != 2
+                            _err_dl("metadata", exception, retrying)
 
-                        # Print retrying message
-                        if retrying:
-                            print(
-                                Style.DIM
-                                + f"  • Retrying metadata download.."
-                                + Style.RESET_ALL
-                            )  # TODO: compat with loading bar
+                            # Print retrying message
+                            if retrying:
+                                print(
+                                    Style.DIM
+                                    + f"  • Retrying metadata download.."
+                                    + Style.RESET_ALL
+                                )  # TODO: compat with loading bar
 
             return res
-
 
     def _parse_metadata(self, res: dict[str, Any]):
         """Parses entirety of downloaded metadata"""
